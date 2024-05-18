@@ -13,6 +13,9 @@
 
 #include "cpuport.h"
 
+#include "psp_api.h"
+#include "bsp_printf.h"
+
 #ifndef RT_USING_SMP
 volatile rt_ubase_t  rt_interrupt_from_thread = 0;
 volatile rt_ubase_t  rt_interrupt_to_thread   = 0;
@@ -90,10 +93,25 @@ rt_uint8_t *rt_hw_stack_init(void       *tentry,
     frame->epc     = (rt_ubase_t)tentry;
 
     /* force to machine mode(MPP=11) and set MPIE to 1 */
-    frame->mstatus = 0x00007880;
+    frame->mstatus = 0x00001880;
 
     return stk;
 }
+
+// Porting on Nexys A7
+rt_base_t rt_hw_interrupt_disable(void)
+{
+    u32_t level;
+    pspInterruptsDisable(&level);
+    return level;
+}
+
+void rt_hw_interrupt_enable(rt_base_t level)
+{
+    pspInterruptsRestore(level);
+}
+
+// end Porting on Nexys A7
 
 /*
  * #ifdef RT_USING_SMP
@@ -111,6 +129,9 @@ void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to)
     rt_interrupt_to_thread = to;
     rt_thread_switch_interrupt_flag = 1;
 
+#ifdef RT_USING_ECALL
+    M_PSP_ECALL();
+#endif
     return ;
 }
 #endif /* end of RT_USING_SMP */

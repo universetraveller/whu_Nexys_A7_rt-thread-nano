@@ -11,7 +11,7 @@
 #ifndef CPUPORT_H__
 #define CPUPORT_H__
 
-#include <rtconfig.h>
+//#include <rtconfig.h>
 
 /* bytes of register width  */
 #ifdef ARCH_CPU_64BIT

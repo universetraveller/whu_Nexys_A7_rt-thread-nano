@@ -10,6 +10,7 @@
  */
 
 #include "cpuport.h"
+#include "cpuport.inc"
 
 #ifdef RT_USING_SMP
 #define rt_hw_interrupt_disable rt_hw_local_irq_disable
@@ -33,9 +34,9 @@ rt_hw_context_switch_to:
     mv   a0,   a1
     jal  rt_cpus_lock_status_restore
 #endif
-    LOAD a0,   2 * REGBYTES(sp)
-    csrw mstatus, a0
-    j    rt_hw_context_switch_exit
+    M_RT_LOAD_MSTATUS
+    M_RT_POP_REGFILE_AND_STATUS
+    mret
 
 /*
  * #ifdef RT_USING_SMP
@@ -56,11 +57,11 @@ rt_hw_context_switch:
      *     mstatus.mie -> sp(2)
      *     x(i)        -> sp(i-4)
      */
-    addi  sp,  sp, -32 * REGBYTES
+    M_RT_PUSH_REGFILE
+
     STORE sp,  (a0)
 
     STORE x1,   0 * REGBYTES(sp)
-    STORE x1,   1 * REGBYTES(sp)
 
     csrr a0, mstatus
     andi a0, a0, 8
@@ -68,35 +69,6 @@ rt_hw_context_switch:
     li   a0, 0x80
 save_mpie:
     STORE a0,   2 * REGBYTES(sp)
-
-    STORE x4,   4 * REGBYTES(sp)
-    STORE x5,   5 * REGBYTES(sp)
-    STORE x6,   6 * REGBYTES(sp)
-    STORE x7,   7 * REGBYTES(sp)
-    STORE x8,   8 * REGBYTES(sp)
-    STORE x9,   9 * REGBYTES(sp)
-    STORE x10, 10 * REGBYTES(sp)
-    STORE x11, 11 * REGBYTES(sp)
-    STORE x12, 12 * REGBYTES(sp)
-    STORE x13, 13 * REGBYTES(sp)
-    STORE x14, 14 * REGBYTES(sp)
-    STORE x15, 15 * REGBYTES(sp)
-    STORE x16, 16 * REGBYTES(sp)
-    STORE x17, 17 * REGBYTES(sp)
-    STORE x18, 18 * REGBYTES(sp)
-    STORE x19, 19 * REGBYTES(sp)
-    STORE x20, 20 * REGBYTES(sp)
-    STORE x21, 21 * REGBYTES(sp)
-    STORE x22, 22 * REGBYTES(sp)
-    STORE x23, 23 * REGBYTES(sp)
-    STORE x24, 24 * REGBYTES(sp)
-    STORE x25, 25 * REGBYTES(sp)
-    STORE x26, 26 * REGBYTES(sp)
-    STORE x27, 27 * REGBYTES(sp)
-    STORE x28, 28 * REGBYTES(sp)
-    STORE x29, 29 * REGBYTES(sp)
-    STORE x30, 30 * REGBYTES(sp)
-    STORE x31, 31 * REGBYTES(sp)
 
     /* restore to thread context
      * sp(0) -> epc;
@@ -109,8 +81,8 @@ save_mpie:
     mv   a0,   a2
     jal  rt_cpus_lock_status_restore
 #endif /*RT_USING_SMP*/
-
-    j rt_hw_context_switch_exit
+    M_RT_POP_REGFILE_AND_STATUS
+    mret
 
 #ifdef RT_USING_SMP
 /*
@@ -153,45 +125,5 @@ rt_hw_context_switch_exit:
     mv sp, a0
 #endif
 #endif
-    /* resw ra to mepc */
-    LOAD a0,   0 * REGBYTES(sp)
-    csrw mepc, a0
-
-    LOAD x1,   1 * REGBYTES(sp)
-
-    li    t0, 0x00001800
-    csrs  mstatus, t0
-    LOAD a0,   2 * REGBYTES(sp)
-    csrs mstatus, a0
-
-    LOAD x4,   4 * REGBYTES(sp)
-    LOAD x5,   5 * REGBYTES(sp)
-    LOAD x6,   6 * REGBYTES(sp)
-    LOAD x7,   7 * REGBYTES(sp)
-    LOAD x8,   8 * REGBYTES(sp)
-    LOAD x9,   9 * REGBYTES(sp)
-    LOAD x10, 10 * REGBYTES(sp)
-    LOAD x11, 11 * REGBYTES(sp)
-    LOAD x12, 12 * REGBYTES(sp)
-    LOAD x13, 13 * REGBYTES(sp)
-    LOAD x14, 14 * REGBYTES(sp)
-    LOAD x15, 15 * REGBYTES(sp)
-    LOAD x16, 16 * REGBYTES(sp)
-    LOAD x17, 17 * REGBYTES(sp)
-    LOAD x18, 18 * REGBYTES(sp)
-    LOAD x19, 19 * REGBYTES(sp)
-    LOAD x20, 20 * REGBYTES(sp)
-    LOAD x21, 21 * REGBYTES(sp)
-    LOAD x22, 22 * REGBYTES(sp)
-    LOAD x23, 23 * REGBYTES(sp)
-    LOAD x24, 24 * REGBYTES(sp)
-    LOAD x25, 25 * REGBYTES(sp)
-    LOAD x26, 26 * REGBYTES(sp)
-    LOAD x27, 27 * REGBYTES(sp)
-    LOAD x28, 28 * REGBYTES(sp)
-    LOAD x29, 29 * REGBYTES(sp)
-    LOAD x30, 30 * REGBYTES(sp)
-    LOAD x31, 31 * REGBYTES(sp)
-
-    addi sp,  sp, 32 * REGBYTES
+    M_RT_POP_REGFILE_AND_STATUS
     mret

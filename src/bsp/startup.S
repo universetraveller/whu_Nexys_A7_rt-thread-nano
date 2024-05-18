@@ -119,7 +119,7 @@ _start:
     li a0, 0
     li a1, 0
 
-    call main
+    call entry
     
     #[OS]: no need for exit, just endless loop here.....was: tail atexit
   # loop here

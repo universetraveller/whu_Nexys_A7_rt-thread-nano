@@ -5,6 +5,8 @@
 
 #include <rtthread.h>
 
+#define IDLE_THREAD_STACK_SIZE 1024
+
 #if defined(__CC_ARM) || defined(__CLANG_ARM)
 #include "RTE_Components.h"
 
@@ -28,6 +30,7 @@
 // <o>the max length of object name<2-16>
 //  <i>Default: 8
 #define RT_NAME_MAX    8
+//#define RT_USING_CUSTOM_BOOTSTRAP
 // <c1>Using RT-Thread components initialization
 //  <i>Using RT-Thread components initialization
 #define RT_USING_COMPONENTS_INIT
@@ -37,7 +40,7 @@
 
 // <o>the stack size of main thread<1-4086>
 //  <i>Default: 512
-#define RT_MAIN_THREAD_STACK_SIZE     256
+#define RT_MAIN_THREAD_STACK_SIZE     1024
 
 // </h>
 
@@ -77,7 +80,7 @@
 #define RT_TIMER_THREAD_PRIO        4
 // <o>The stack size of timer thread <0-8192>
 //  <i>Default: 512
-#define RT_TIMER_THREAD_STACK_SIZE  512
+#define RT_TIMER_THREAD_STACK_SIZE  1024
 // </e>
 
 // <h>IPC(Inter-process communication) Configuration
