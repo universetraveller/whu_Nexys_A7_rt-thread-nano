@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "bsp_external_interrupts.h": "c",
+        "demo_utils.h": "c",
+        "psp_csrs.h": "c",
+        "rtthread.h": "c",
+        "rthw.h": "c",
+        "psp_api.h": "c"
+    }
+}
