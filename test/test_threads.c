@@ -1,4 +1,5 @@
 #include <rtthread.h>
+#include "applications.h"
 
 #define THREAD_PRIORITY         25
 #define THREAD_STACK_SIZE       512
@@ -39,7 +40,6 @@ static void thread2_entry(void *param)
     /* 线程 2 运行结束后也将自动被系统脱离 */
 }
 
-int thread_sample(void);
 /* 线程示例 */
 int thread_sample(void)
 {

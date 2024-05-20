@@ -5,6 +5,9 @@
         "psp_csrs.h": "c",
         "rtthread.h": "c",
         "rthw.h": "c",
-        "psp_api.h": "c"
+        "psp_api.h": "c",
+        "time.h": "c",
+        "features.h": "c",
+        "port_utils.h": "c"
     }
 }

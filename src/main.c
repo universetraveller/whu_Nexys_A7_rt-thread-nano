@@ -1,11 +1,14 @@
 #include <rtthread.h>
 #include "port_utils.h"
-extern int thread_sample(void);
+#include "applications.h"
 int main(void)
 {
 #ifdef _MAIN_DBG_MACRO
     __debug_external_hardwares();
 #endif
+#ifndef _MAIN_RUN_DEMO
+    clock_main();
+#else
     thread_sample();
     u16_t __leds = 0x8000;
     for(;;)
@@ -17,4 +20,5 @@ int main(void)
         digit_display_num(__leds);
         rt_thread_delay(10);
     }
+#endif
 }
