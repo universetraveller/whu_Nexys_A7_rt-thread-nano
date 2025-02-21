@@ -8,6 +8,12 @@
 #else
 #define CLK_DEBUG(x)
 #endif
+#define CLOCK_YIELD
+#ifdef CLOCK_YIELD
+#define CLOCK_DELAY(x) rt_thread_yield()
+#else
+#define CLOCK_DELAY(x) rt_thread_delay(x)
+#endif
 #define CLK_POS_0 1
 #define CLK_POS_1 100
 #define CLK_POS_2 10000
@@ -46,6 +52,7 @@ typedef struct __LedCounter
     rt_int8_t hour;
     rt_int8_t min;
     rt_int8_t sec;
+    // us refers to 10ms actully
     rt_int8_t us;
     rt_tick_t tick_pre;
     rt_int8_t running;
@@ -57,7 +64,8 @@ LedCounter sys_count_up_counter;
 LedCounter sys_count_down_counter;
 static rt_int8_t sys_clock_running = 1;
 LedClock sys_led_clock;
-const static rt_tick_t ticks_per_sec = RT_TICK_PER_SECOND;
+const static rt_tick_t ticks_per_sec = RT_TICK_PER_SECOND / 4;
+const static rt_tick_t ticks_per_10ms = ticks_per_sec / 100;
 
 ALIGN(RT_ALIGN_SIZE)
 static char led_alarm_thread_stack[1024];
@@ -86,7 +94,7 @@ static void alarm_entry(void* parameter)
             rt_schedule();
         }
         alarm_using_leds();
-        rt_thread_mdelay(20);
+        rt_thread_delay(20);
         rt_thread_yield();
     }
 }
@@ -179,6 +187,7 @@ static void sys_clock_control(void* args)
             rt_schedule();
         }
         tick_cur = rt_tick_get();
+        //CLK_DEBUG(("tick %d\n", tick_cur));
         check_flag = 60 - sys_led_clock.sec;
         extra_ticks = sys_led_clock.extra_ticks + tick_cur - sys_led_clock.tick_pre;
         while(extra_ticks > ticks_per_sec && check_flag){
@@ -190,16 +199,18 @@ static void sys_clock_control(void* args)
             update_clock(&sys_led_clock);
         sys_led_clock.extra_ticks = extra_ticks;
         sys_led_clock.tick_pre = tick_cur;
-        rt_thread_mdelay(1000);
+        CLOCK_DELAY(ticks_per_sec);
     }
 }
 
+static u32_t disp_delay = ticks_per_sec;
 static void display_current(void* parameter)
 {
     rt_kprintf("DISPLAY\n");
+    u32_t to_display_old = 0xFFFFFF;
+    u32_t to_display = 0xFFFFFF;
     for(;;)
     {
-        u32_t to_display = 0xFFFFFF;
         switch(clock_mode)
         {
             case CLOCK_SEC:
@@ -229,9 +240,13 @@ static void display_current(void* parameter)
             default:
                 break;
         }
-        digit_display_num(to_display);
-        rt_thread_mdelay(10);
-        rt_thread_yield();
+        if(to_display ^ to_display_old)
+        {
+            to_display_old = to_display;
+            //CLK_DEBUG(("disp %x\n", to_display));
+            digit_display_num(to_display);
+        }
+        CLOCK_DELAY(disp_delay);
     }
 }
 
@@ -243,14 +258,13 @@ static void count_up_handler(void* args)
     for(;;)
     {
         if(!sys_count_up_counter.running){
-            //rt_thread_yield();
             rt_thread_suspend(count_up_thread_tid);
             CLK_DEBUG(("Count up suspend self\n"));
             rt_schedule();
         }
         tick_cur = rt_tick_get();
-        n_us = (tick_cur - sys_count_up_counter.tick_pre) / 10;
-        sys_count_up_counter.tick_pre += n_us * 10;
+        n_us = (tick_cur - sys_count_up_counter.tick_pre) / ticks_per_10ms;
+        sys_count_up_counter.tick_pre += n_us * ticks_per_10ms;
         n_us += sys_count_up_counter.us;
         if(n_us > 100){
             for(; n_us >= 100; n_us -= 100){
@@ -260,7 +274,7 @@ static void count_up_handler(void* args)
             }
         }
         sys_count_up_counter.us = n_us;
-        rt_thread_mdelay(10);
+        CLOCK_DELAY(ticks_per_10ms);
     }
 }
 
@@ -278,7 +292,7 @@ static void count_down_handler(void* args)
             rt_schedule();
         }
         tick_cur = rt_tick_get();
-        n_s = (tick_cur - sys_count_up_counter.tick_pre) / ticks_per_sec;
+        n_s = (tick_cur - sys_count_down_counter.tick_pre) / ticks_per_sec;
         sys_count_down_counter.tick_pre += n_s * ticks_per_sec;
         if(sys_count_down_counter.tick_pre < ticks_next_alarm){
             while(n_s >= sys_count_down_counter.sec)
@@ -296,10 +310,15 @@ static void count_down_handler(void* args)
             alarming = 1;
             rt_thread_resume(led_alarm_thread_tid);
         }
-        rt_thread_mdelay(1000);
+        CLOCK_DELAY(ticks_per_sec);
     }
 }
 
+#ifdef CLOCK_YIELD
+#define PRIO_CLOCK PRIO_FIRST
+#else
+#define PRIO_CLOCK (PRIO_FIRST - 1)
+#endif
 void clock_init(void)
 {
     sys_count_up_counter.running = 0;
@@ -326,7 +345,7 @@ void clock_init(void)
                    RT_NULL,
                    led_alarm_thread_stack,
                    sizeof(led_alarm_thread_stack),
-                   PRIO_FIRST, 5);
+                   PRIO_CLOCK, 5);
     rt_thread_startup(led_alarm_thread_tid);
 
     rt_thread_init(sys_clock_control_tid,
@@ -335,7 +354,7 @@ void clock_init(void)
                     RT_NULL,
                     sys_clock_control_stack,
                     sizeof(sys_clock_control_stack),
-                    PRIO_FIRST - 1, 25);
+                    PRIO_CLOCK, 50);
     rt_thread_startup(sys_clock_control_tid);
 
     rt_thread_init(display_thread_tid,
@@ -344,7 +363,7 @@ void clock_init(void)
                     RT_NULL,
                     display_thread_stack,
                     sizeof(display_thread_stack),
-                    PRIO_FIRST, 10);
+                    PRIO_CLOCK, 50);
     rt_thread_startup(display_thread_tid);
 
     rt_thread_init(count_up_thread_tid,
@@ -353,7 +372,7 @@ void clock_init(void)
                     RT_NULL,
                     count_up_thread_stack,
                     sizeof(count_up_thread_stack),
-                    PRIO_FIRST - 1, 10);
+                    PRIO_CLOCK, 50);
     rt_thread_startup(count_up_thread_tid);
 
     rt_thread_init(count_down_thread_tid,
@@ -362,7 +381,7 @@ void clock_init(void)
                     RT_NULL,
                     count_down_thread_stack,
                     sizeof(count_down_thread_stack),
-                    PRIO_FIRST - 1, 10);
+                    PRIO_CLOCK, 50);
     rt_thread_startup(count_down_thread_tid);
     CLK_DEBUG(("INIT END\n"));
 }
@@ -400,7 +419,6 @@ void handle_ok(void)
     case COUNT_UP:
         if(sys_count_up_counter.running){
             sys_count_up_counter.running = 0;
-            //rt_thread_suspend(count_up_thread_tid);
         }else{
             sys_count_up_counter.running = 1;
             sys_count_up_counter.tick_pre = rt_tick_get();
@@ -420,7 +438,6 @@ void handle_ok(void)
         }else{
             if(sys_count_down_counter.running){
                 sys_count_down_counter.running = 0;
-                //rt_thread_suspend(count_down_thread_tid);
             }else{
                 sys_count_down_counter.running = 1;
                 sys_count_down_counter.tick_pre = rt_tick_get();
@@ -440,10 +457,12 @@ void handle_ok(void)
 
 void handle_setting(void)
 {
+    /* Enter setting mode to set a specific time to the main clock and the count down
+        counter. The time is set from the hour field to the second field. If the input
+        is ok, the active field will be set to the next field. */
     switch (clock_mode)
     {
     case CLOCK_SEC:
-        //rt_thread_suspend(sys_clock_control_tid);
         sys_clock_running = 0;
         modifying_attr = &(sys_led_clock.hour);
         break;
@@ -487,6 +506,7 @@ void clock_demo(u32_t* ctl)
     case COUNT_DOWN:
     // switch to count down counter
         clock_mode = COUNT_DOWN;
+        disp_delay = ticks_per_sec;
         if(!sys_count_down_counter.running)
         {
             sys_count_down_counter.hour = 0;
@@ -498,6 +518,7 @@ void clock_demo(u32_t* ctl)
     case COUNT_UP:
     // switch to count up counter
         clock_mode = COUNT_UP;
+        disp_delay = ticks_per_10ms;
         if(!sys_count_up_counter.running)
         {
             sys_count_up_counter.hour = 0;
@@ -509,6 +530,7 @@ void clock_demo(u32_t* ctl)
     case CLOCK_SEC:
     // switch to system clock
         clock_mode = CLOCK_SEC;
+        disp_delay = ticks_per_sec;
         break;
     default:
         break;
@@ -527,9 +549,9 @@ void clock_main(void)
     {
         sw_cur = get_sw_16();
         sw_ctl = sw_pre ^ sw_cur;
-        sw_pre = sw_cur;
         if(sw_ctl)
         {
+            sw_pre = sw_cur;
             CLK_DEBUG(("Switch ctrl %x\n", sw_ctl));
             if(alarming)
             {
