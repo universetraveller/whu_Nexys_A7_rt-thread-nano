@@ -49,8 +49,8 @@ typedef struct __LedClock
     rt_int8_t hour;
     rt_int8_t min;
     rt_int8_t sec;
-    rt_tick_t tick_pre;
-    rt_tick_t extra_ticks;
+    rt_tick_t tick_pre;       // previous system ticks checkpoint
+    rt_tick_t extra_ticks;    // ticks value stored that is less than ticks_per_sec
 } LedClock;
 
 typedef struct __LedCounter
@@ -58,8 +58,7 @@ typedef struct __LedCounter
     rt_int8_t hour;
     rt_int8_t min;
     rt_int8_t sec;
-    // us refers to 10ms actully
-    rt_int8_t us;
+    rt_int8_t us;          // refers to 10ms actully
     rt_tick_t tick_pre;
     rt_int8_t running;
 } LedCounter;
