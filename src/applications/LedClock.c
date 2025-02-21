@@ -20,17 +20,23 @@
 // Modes
 #define CLOCK_SEC 0
 
-// TODO
+// TODO implement
+// show day time without seconds
 #define CLOCK_DAY 1
+// show calendar time
 #define CALENDAR 2
+// set multiple alarms
 #define ALARM_CLOCK 3
 
+// counter timer
 #define COUNT_UP 4
 #define COUNT_DOWN 5
 
+// display mode
 static u08_t clock_mode = CLOCK_SEC;
 
 // TODO implement 
+// 24h/12h format
 #define FULL_DAY 0
 #define HALF_DAY 1
 static u08_t time_format = FULL_DAY;
@@ -94,6 +100,8 @@ static void alarm_entry(void* parameter)
             rt_schedule();
         }
         alarm_using_leds();
+        // refresh rate would be too high to read
+        // when using CLOCK_DELAY
         rt_thread_delay(20);
         rt_thread_yield();
     }
@@ -264,6 +272,8 @@ static void count_up_handler(void* args)
         }
         tick_cur = rt_tick_get();
         n_us = (tick_cur - sys_count_up_counter.tick_pre) / ticks_per_10ms;
+        // variable n_us would be 0 which indicates the ticks should
+        // be stored for next time
         sys_count_up_counter.tick_pre += n_us * ticks_per_10ms;
         n_us += sys_count_up_counter.us;
         if(n_us > 100){
@@ -286,7 +296,6 @@ static void count_down_handler(void* args)
     for(;;)
     {
         if(!sys_count_down_counter.running){
-            //rt_thread_yield();
             rt_thread_suspend(count_down_thread_tid);
             CLK_DEBUG(("Count down suspend self\n"));
             rt_schedule();
@@ -457,9 +466,11 @@ void handle_ok(void)
 
 void handle_setting(void)
 {
-    /* Enter setting mode to set a specific time to the main clock and the count down
-        counter. The time is set from the hour field to the second field. If the input
-        is ok, the active field will be set to the next field. */
+    /** 
+     * Enter setting mode to set a specific time to the main clock and the count down
+     * counter. The time is set from the hour field to the second field. If the input
+     * is ok, the active field will be set to the next field.
+     */
     switch (clock_mode)
     {
     case CLOCK_SEC:
@@ -486,25 +497,27 @@ void clock_demo(u32_t* ctl)
     switch (*ctl)
     {
     case CLOCK_CTL_OK:
-    // exit setting mode of current clock mode
+    // exit the setting mode of current clock mode
         handle_ok();
         break;
     case CLOCK_CTL_SETTING:
-    // enter setting mode of current clock mode
+    // enter the setting mode of current clock mode
         handle_setting();
         break;
     case CLOCK_CTL_UP:
-    // trigger up to current clock mode
+    // increase the active field
         if(modifying_attr != NULL)
             (*modifying_attr) ++;
         break;
     case CLOCK_CTL_DOWN:
-    // trigger down to current clock mode
+    // decrease the active field
         if(modifying_attr != NULL)
             (*modifying_attr) --;
         break;
     case COUNT_DOWN:
-    // switch to count down counter
+    // switch to the count down counter
+    // ok: start/suspend/resume the timer
+    // setting: enter the setting mode
         clock_mode = COUNT_DOWN;
         disp_delay = ticks_per_sec;
         if(!sys_count_down_counter.running)
@@ -516,7 +529,8 @@ void clock_demo(u32_t* ctl)
         }
         break;
     case COUNT_UP:
-    // switch to count up counter
+    // switch to the count up counter
+    // ok: start/suspend/resume the stopwatch
         clock_mode = COUNT_UP;
         disp_delay = ticks_per_10ms;
         if(!sys_count_up_counter.running)
@@ -528,7 +542,9 @@ void clock_demo(u32_t* ctl)
         }
         break;
     case CLOCK_SEC:
-    // switch to system clock
+    // switch to the system clock
+    // ok: suspend/resume the clock
+    // setting: enter the setting mode
         clock_mode = CLOCK_SEC;
         disp_delay = ticks_per_sec;
         break;
@@ -554,10 +570,7 @@ void clock_main(void)
             sw_pre = sw_cur;
             CLK_DEBUG(("Switch ctrl %x\n", sw_ctl));
             if(alarming)
-            {
                 alarming = 0;
-                //rt_thread_suspend(led_alarm_thread_tid);
-            }
             clock_demo(&sw_ctl);
         }
         rt_thread_yield();
